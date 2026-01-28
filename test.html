@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Quality Analyzer</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        // Lucide Icons as inline SVG components
+        const Upload = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+        );
+        
+        const FileText = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+        );
+        
+        const AlertCircle = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        );
+        
+        const CheckCircle = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+        );
+        
+        const Download = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        );
+        
+        const BarChart3 = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M3 3v18h18"></path>
+                <path d="M18 17V9"></path>
+                <path d="M13 17V5"></path>
+                <path d="M8 17v-3"></path>
+            </svg>
+        );
+        
+        const Database = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+        );
+        
+        const TrendingUp = ({ size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+        );        function DataQualityAnalyzer() {
+            const [fileData, setFileData] = useState(null);
+            const [analysis, setAnalysis] = useState(null);
+            const [fileName, setFileName] = useState('');            const analyzeData = (data) => {
+                const headers = Object.keys(data[0]);
+                const totalRows = data.length;
+                
+                const columnAnalysis = headers.map(header => {
+                    const values = data.map(row => row[header]);
+                    const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
+                    const uniqueValues = [...new Set(nonNullValues)];
+                    const missingCount = totalRows - nonNullValues.length;
+                    const missingPercentage = ((missingCount / totalRows) * 100).toFixed(2);
+                    
+                    const numericValues = nonNullValues.filter(v => !isNaN(parseFloat(v)) && isFinite(v));
+                    const isNumeric = numericValues.length > nonNullValues.length * 0.8;
+                    const dataType = isNumeric ? 'Numerical' : 'Categorical';
+                    
+                    const hasDuplicates = uniqueValues.length !== nonNullValues.length;
+                    
+                    let stats = null;
+                    if (isNumeric && numericValues.length > 0) {
+                        const numbers = numericValues.map(v => parseFloat(v));
+                        const sorted = [...numbers].sort((a, b) => a - b);
+                        stats = {
+                            min: Math.min(...numbers),
+                            max: Math.max(...numbers),
+                            mean: (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(2),
+                            median: sorted[Math.floor(sorted.length / 2)]
+                        };
+                    }
+                    
+                    return {
+                        name: header,
+                        dataType,
+                        totalValues: totalRows,
+                        nonNullValues: nonNullValues.length,
+                        missingCount,
+                        missingPercentage,
+                        uniqueValues: uniqueValues.length,
+                        hasDuplicates,
+                        stats
+                    };
+                });                const categoricalColumns = columnAnalysis.filter(c => c.dataType === 'Categorical').length;
+                const numericalColumns = columnAnalysis.filter(c => c.dataType === 'Numerical').length;
+                
+                const issues = [];
+                
+                const columnsWithMissing = columnAnalysis.filter(c => c.missingCount > 0);
+                if (columnsWithMissing.length > 0) {
+                    issues.push({
+                        type: 'Missing Data',
+                        severity: 'high',
+                        description: `${columnsWithMissing.length} column(s) have missing values`,
+                        details: columnsWithMissing.map(c => `${c.name}: ${c.missingCount} missing (${c.missingPercentage}%)`)
+                    });
+                }
+                
+                const uniqueRows = new Set(data.map(row => JSON.stringify(row)));
+                if (uniqueRows.size < data.length) {
+                    issues.push({
+                        type: 'Duplicate Rows',
+                        severity: 'medium',
+                        description: `${data.length - uniqueRows.size} duplicate row(s) found`,
+                        details: [`Total rows: ${data.length}, Unique rows: ${uniqueRows.size}`]
+                    });
+                }
+                
+                const possibleIds = columnAnalysis.filter(c => c.uniqueValues === c.nonNullValues && c.nonNullValues > 0);
+                if (possibleIds.length > 0) {
+                    issues.push({
+                        type: 'Potential ID Columns',
+                        severity: 'low',
+                        description: `${possibleIds.length} column(s) appear to be unique identifiers`,
+                        details: possibleIds.map(c => c.name)
+                    });
+                }
+                
+                const lowCardinalityCols = columnAnalysis.filter(c => 
+                    c.dataType === 'Categorical' && c.uniqueValues < 5 && c.uniqueValues > 1
+                );
+                if (lowCardinalityCols.length > 0) {
+                    issues.push({
+                        type: 'Low Cardinality',
+                        severity: 'low',
+                        description: `${lowCardinalityCols.length} categorical column(s) have very few unique values`,
+                        details: lowCardinalityCols.map(c => `${c.name}: ${c.uniqueValues} unique values`)
+                    });
+                }                return {
+                    totalRows,
+                    totalColumns: headers.length,
+                    categoricalColumns,
+                    numericalColumns,
+                    columnAnalysis,
+                    issues,
+                    rawData: data.slice(0, 10)
+                };
+            };            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;                setFileName(file.name);
+                const reader = new FileReader();                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                        
+                        if (jsonData.length === 0) {
+                            alert('No data found in file');
+                            return;
+                        }                        setFileData(jsonData);
+                        const analysisResult = analyzeData(jsonData);
+                        setAnalysis(analysisResult);
+                    } catch (error) {
+                        alert('Error reading file. Please ensure it\'s a valid Excel or CSV file.');
+                        console.error(error);
+                    }
+                };                reader.readAsArrayBuffer(file);
+            };            const exportReport = () => {
+                if (!analysis) return;                const report = `
+DATA QUALITY ANALYSIS REPORT
+Generated: ${new Date().toLocaleString()}
+File: ${fileName}═══════════════════════════════════════
+DATASET OVERVIEW
+═══════════════════════════════════════
+Total Data Points (Rows): ${analysis.totalRows}
+Total Variables (Columns): ${analysis.totalColumns}
+Number of Categorical Variables: ${analysis.categoricalColumns}
+Number of Numerical Variables: ${analysis.numericalColumns}═══════════════════════════════════════
+IDENTIFIED ISSUES (${analysis.issues.length})
+═══════════════════════════════════════
+${analysis.issues.map((issue, idx) => `
+${idx + 1}. ${issue.type} [${issue.severity.toUpperCase()}]
+   ${issue.description}
+   ${issue.details.map(d => `   - ${d}`).join('\n')}
+`).join('\n')}═══════════════════════════════════════
+DETAILED COLUMN ANALYSIS
+═══════════════════════════════════════
+${analysis.columnAnalysis.map((col, idx) => `
+${idx + 1}. ${col.name}
+   Type: ${col.dataType}
+   Missing Values: ${col.missingCount} (${col.missingPercentage}%)
+   Unique Values: ${col.uniqueValues}
+   Has Duplicates: ${col.hasDuplicates ? 'Yes' : 'No'}
+   ${col.stats ? `Statistics:
+      Min: ${col.stats.min}
+      Max: ${col.stats.max}
+      Mean: ${col.stats.mean}
+      Median: ${col.stats.median}` : ''}
+`).join('\n')}
+                `;                const blob = new Blob([report], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `data-quality-report-${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+            };            const getSeverityColor = (severity) => {
+                switch(severity) {
+                    case 'high': return 'bg-red-100 text-red-700 border-red-300';
+                    case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+                    case 'low': return 'bg-blue-100 text-blue-700 border-blue-300';
+                    default: return 'bg-gray-100 text-gray-700 border-gray-300';
+                }
+            };            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+                            <div className="flex items-start justify-between mb-6">
+                                <div>
+                                    <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center gap-3">
+                                        <Database size={40} className="text-indigo-600" />
+                                        Data Quality Analyzer
+                                    </h1>
+                                    <p className="text-gray-600">Upload your dataset to identify issues and generate documentation</p>
+                                </div>
+                                {analysis && (
+                                    <button
+                                        onClick={exportReport}
+                                        className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                                    >
+                                        <Download size={20} />
+                                        Export Report
+                                    </button>
+                                )}
+                            </div>                            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-8 text-white">
+                                <label className="cursor-pointer block">
+                                    <input
+                                        type="file"
+                                        accept=".csv,.xlsx,.xls"
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                    />
+                                    <div className="flex flex-col items-center justify-center gap-4">
+                                        <Upload size={48} className="opacity-90" />
+                                        <div className="text-center">
+                                            <div className="text-xl font-bold mb-2">
+                                                {fileName || 'Click to Upload Dataset'}
+                                            </div>
+                                            <div className="text-sm opacity-90">
+                                                Supports CSV, Excel (.xlsx, .xls) files
+                                            </div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>                        {analysis && (
+                            <>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <FileText size={24} className="text-indigo-600" />
+                                            <div className="text-sm text-gray-600">Total Data Points</div>
+                                        </div>
+                                        <div className="text-3xl font-bold text-gray-800">{analysis.totalRows}</div>
+                                    </div>
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <BarChart3 size={24} className="text-purple-600" />
+                                            <div className="text-sm text-gray-600">Total Variables</div>
+                                        </div>
+                                        <div className="text-3xl font-bold text-gray-800">{analysis.totalColumns}</div>
+                                    </div>
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <TrendingUp size={24} className="text-green-600" />
+                                            <div className="text-sm text-gray-600">Numerical</div>
+                                        </div>
+                                        <div className="text-3xl font-bold text-gray-800">{analysis.numericalColumns}</div>
+                                    </div>
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <Database size={24} className="text-blue-600" />
+                                            <div className="text-sm text-gray-600">Categorical</div>
+                                        </div>
+                                        <div className="text-3xl font-bold text-gray-800">{analysis.categoricalColumns}</div>
+                                    </div>
+                                </div>                                <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        <AlertCircle size={24} className="text-orange-600" />
+                                        Identified Issues ({analysis.issues.length})
+                                    </h2>
+                                    {analysis.issues.length === 0 ? (
+                                        <div className="flex items-center gap-3 p-6 bg-green-50 rounded-lg">
+                                            <CheckCircle size={24} className="text-green-600" />
+                                            <span className="text-green-700 font-medium">No major issues detected! Dataset looks clean.</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {analysis.issues.map((issue, idx) => (
+                                                <div key={idx} className={`border-l-4 rounded-lg p-5 ${getSeverityColor(issue.severity)}`}>
+                                                    <div className="flex items-start justify-between mb-2">
+                                                        <h3 className="font-bold text-lg">{issue.type}</h3>
+                                                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase">
+                                                            {issue.severity}
+                                                        </span>
+                                                    </div>
+                                                    <p className="mb-3">{issue.description}</p>
+                                                    <ul className="space-y-1 text-sm">
+                                                        {issue.details.map((detail, i) => (
+                                                            <li key={i} className="ml-4">• {detail}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                        <BarChart3 size={24} className="text-indigo-600" />
+                                        Detailed Column Analysis
+                                    </h2>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="bg-indigo-50">
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Column Name</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Missing</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Unique Values</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Statistics</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200">
+                                                {analysis.columnAnalysis.map((col, idx) => (
+                                                    <tr key={idx} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3 font-medium text-gray-800">{col.name}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                                                col.dataType === 'Numerical' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                                            }`}>
+                                                                {col.dataType}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`font-medium ${col.missingCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                                {col.missingCount} ({col.missingPercentage}%)
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-700">{col.uniqueValues}</td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                                            {col.stats ? (
+                                                                <div className="space-y-1">
+                                                                    <div>Min: {col.stats.min}</div>
+                                                                    <div>Max: {col.stats.max}</div>
+                                                                    <div>Mean: {col.stats.mean}</div>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-400">N/A</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}                        {!analysis && (
+                            <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
+                                <Database size={64} className="mx-auto text-gray-300 mb-4" />
+                                <h3 className="text-xl font-semibold text-gray-700 mb-2">No Data Loaded</h3>
+                                <p className="text-gray-500">Upload a CSV or Excel file to begin analysis</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }        ReactDOM.render(<DataQualityAnalyzer />, document.getElementById('root'));
+    </script>
+</body>
+</html>
